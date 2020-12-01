@@ -1,7 +1,7 @@
 // const fs = require('fs');
 // const https = require('https');
-const http = require('http');
-const WebSocket = require('ws').Server;
+const http = require("http");
+const WebSocket = require("ws").Server;
 
 // const server = https.createServer({
 //   cert: fs.readFileSync('https/cert.pem'),
@@ -12,54 +12,82 @@ server.listen(9898);
 
 const wss = new WebSocket({ server });
 
-let CLIENTS = [{
-  name: "The Daily Hustle",
-  users: []
-}];
+let CREATORS = [
+  {
+    name: "The Daily Hustle",
+    users: [],
+  },
+];
 
-wss.on('connection', function connection(ws) {
-  ws.on('message', function incoming(message) { 
+wss.on("connection", function connection(ws) {
+  ws.on("message", function incoming(message) {
     let obj = JSON.parse(message);
     let type = obj.type;
-    if(type == 'fetchNames'){
-      const names = CLIENTS.map(el => el.name);
-      ws.send(JSON.stringify({
-        type: 'usernames',
-        names
-      }));
-    }
-    else {
+
+    if (type == "fetchNames") {
+      const names = CREATORS.map((el) => el.name);
+      ws.send(
+        JSON.stringify({
+          type: "usernames",
+          names,
+        })
+      );
+    } else {
       let name = obj.name;
-      if(type === 'join'){
-        const clientInner = CLIENTS.find(el => el.name == name);
-        if(clientInner) clientInner.users.push(ws);
-        else ws.send("Session unavailable");
-      }else if (type === 'create'){
-        if (!CLIENTS.some(el => el.name == name)) { 
-          CLIENTS = [...CLIENTS,
-            ({
+      if (type === "join") {
+        const clientInner = CREATORS.find((el) => el.name == name);
+        console.log(clientInner);
+        if (clientInner) {
+          clientInner.users.push(ws);
+          ws.send(
+            JSON.stringify({
+              type: "confirmJoin",
+              name: clientInner.name,
+            })
+          );
+        } else ws.send("Session unavailable");
+      } else if (type === "create") {
+        if (!CREATORS.some((el) => el.name == name)) {
+          CREATORS = [
+            ...CREATORS,
+            {
               name,
               wsInfo: ws,
-              users: []
-            })
+              users: [],
+            },
           ];
+          ws.send(JSON.stringify({type:'successfulCreate'}));
+          wss.clients.forEach( client => {
+            client.send(
+              JSON.stringify({
+                type: "usernames",
+                names: CREATORS.map( el => el.name )
+              })
+            );
+          });      
         } else {
-          ws.send("Username already taken");
+          ws.send(
+            JSON.stringify({type: "takenUsername"})
+          );
         }
       }
     }
+
+  });
+
+  ws.on("close", function close() {
+    CREATORS = CREATORS.filter((creator) => creator.wsInfo != ws);
+
+    const names = CREATORS.map((el) => el.name);
     
-    // // Broadcast to all clients excluding itself
-    // wss.clients.forEach(function each(client) {
-    //   if (client !== ws && client.readyState === WebSocket.OPEN) {
-    //     client.send(data);
-    //   }
-    // });
+    wss.clients.forEach( client => {
+      client.send(
+        JSON.stringify({
+          type: "usernames",
+          names,
+        })
+      );
+    });
 
   });
-
-  ws.on('close', function close() {
-    console.log('Client disconnected');
-  });
-
 });
