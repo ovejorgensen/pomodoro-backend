@@ -25,17 +25,27 @@ wss.on("connection", function connection(ws) {
     let type = obj.type;
 
     if (type == "fetchNames") {
-      const names = CREATORS.map((el) => el.name);
+      const names = CREATORS.map( el => el.name);
       ws.send(
         JSON.stringify({
           type: "usernames",
           names,
         })
       );
+    } else if (type == "endSession") {
+      CREATORS = CREATORS.filter( el => el.wsInfo != ws);
+      wss.clients.forEach( client => {
+        client.send(
+          JSON.stringify({
+            type: "usernames",
+            names: CREATORS.map( el => el.name )
+          })
+        );
+      }); 
     } else {
       let name = obj.name;
       if (type === "join") {
-        const clientInner = CREATORS.find((el) => el.name == name);
+        const clientInner = CREATORS.find( el => el.name == name);
         console.log(clientInner);
         if (clientInner) {
           clientInner.users.push(ws);
@@ -43,6 +53,8 @@ wss.on("connection", function connection(ws) {
             JSON.stringify({
               type: "confirmJoin",
               name: clientInner.name,
+              state: clientInner.state,
+              time: clientInner.time
             })
           );
         } else ws.send("Session unavailable");
@@ -53,6 +65,8 @@ wss.on("connection", function connection(ws) {
             {
               name,
               wsInfo: ws,
+              state: obj.state,
+              time: obj.time,
               users: [],
             },
           ];
@@ -70,6 +84,20 @@ wss.on("connection", function connection(ws) {
             JSON.stringify({type: "takenUsername"})
           );
         }
+      } else if (type === "sendHostInfo") {
+        const currentCreator = CREATORS.find( el => el.wsInfo == ws);
+        currentCreator.state = obj.state;
+        currentCreator.time = obj.time;
+
+        currentCreator.users.forEach( client => {
+          client.send(
+            JSON.stringify({
+              type: "hostStatus",
+              state: currentCreator.state,
+              time: currentCreator.time,
+            })
+          );
+        }) 
       }
     }
 
