@@ -32,7 +32,9 @@ wss.on("connection", function connection(ws) {
           names,
         })
       );
-    } else if (type == "endSession") {
+    } 
+    
+    else if (type == "endSession") {
       CREATORS = CREATORS.filter( el => el.wsInfo != ws);
       wss.clients.forEach( client => {
         client.send(
@@ -42,13 +44,21 @@ wss.on("connection", function connection(ws) {
           })
         );
       }); 
-    } else {
+    } 
+    
+    else {
       let name = obj.name;
       if (type === "join") {
         const clientInner = CREATORS.find( el => el.name == name);
-        console.log(clientInner);
         if (clientInner) {
           clientInner.users.push(ws);
+
+          const usersInfo = JSON.stringify({
+            type: "getUsersInfo",
+            numUsers: clientInner.users.length
+          });
+          clientInner.wsInfo.send(usersInfo);
+
           ws.send(
             JSON.stringify({
               type: "confirmJoin",
@@ -57,8 +67,12 @@ wss.on("connection", function connection(ws) {
               time: clientInner.time
             })
           );
-        } else ws.send("Session unavailable");
-      } else if (type === "create") {
+
+        } 
+        else ws.send("Session unavailable");
+      } 
+      
+      else if (type === "create") {
         if (!CREATORS.some((el) => el.name == name)) {
           CREATORS = [
             ...CREATORS,
@@ -79,22 +93,27 @@ wss.on("connection", function connection(ws) {
               })
             );
           });      
-        } else {
+        } 
+        
+        else {
           ws.send(
             JSON.stringify({type: "takenUsername"})
           );
         }
-      } else if (type === "sendHostInfo") {
+      } 
+      
+      else if (type === "sendHostInfo") {
         const currentCreator = CREATORS.find( el => el.wsInfo == ws);
         currentCreator.state = obj.state;
         currentCreator.time = obj.time;
-
+        const numUsers = currentCreator.users.length;
         currentCreator.users.forEach( client => {
           client.send(
             JSON.stringify({
               type: "hostStatus",
               state: currentCreator.state,
               time: currentCreator.time,
+              numUsers
             })
           );
         }) 
