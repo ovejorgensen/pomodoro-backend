@@ -48,7 +48,9 @@ wss.on("connection", function connection(ws) {
             numUsers: CREATORS[i].users.length
           });
           // Update host-side
-          CREATORS[i].wsInfo.send(usersInfo);
+          if (CREATORS[i].name !== "The Daily Hustle"){
+            CREATORS[i].wsInfo.send(usersInfo);
+          }
           // Update user-side
           CREATORS[i].users.forEach( client => {
             client.send(usersInfo);
@@ -106,7 +108,12 @@ wss.on("connection", function connection(ws) {
       } 
       
       else if (type === "create") {
-        if (!CREATORS.some((el) => el.name == name)) {
+        if (name.toString().length > 10){
+          ws.send(
+            JSON.stringify({type: "longName"})
+          );
+        }
+        else if (!CREATORS.some((el) => el.name == name)) {
           CREATORS = [
             ...CREATORS,
             {
@@ -137,19 +144,21 @@ wss.on("connection", function connection(ws) {
       
       else if (type === "sendHostInfo") {
         const currentCreator = CREATORS.find( el => el.wsInfo == ws);
-        currentCreator.state = obj.state;
-        currentCreator.time = obj.time;
-        const numUsers = currentCreator.users.length;
-        currentCreator.users.forEach( client => {
-          client.send(
-            JSON.stringify({
-              type: "hostStatus",
-              state: currentCreator.state,
-              time: currentCreator.time,
-              numUsers
-            })
-          );
-        }) 
+        if (currentCreator !== undefined){
+          currentCreator.state = obj.state;
+          currentCreator.time = obj.time;
+          const numUsers = currentCreator.users.length;
+          currentCreator.users.forEach( client => {
+            client.send(
+              JSON.stringify({
+                type: "hostStatus",
+                state: currentCreator.state,
+                time: currentCreator.time,
+                numUsers
+              })
+            );
+          }) 
+        }
       }
     }
 
@@ -168,13 +177,18 @@ wss.on("connection", function connection(ws) {
           names,
         })
       );
+      client.send(
+        JSON.stringify({
+          type: "endSession"
+        })
+      );
     });
 
     // Update number of people in session
     for (let i = 0; i< CREATORS.length; i++){
       const preLen = CREATORS[i].users.length; 
-      creator = CREATORS[i].users.filter(el => el != ws)
-      CREATORS[i].users = creator;
+      remainingUsers = CREATORS[i].users.filter(el => el != ws)
+      CREATORS[i].users = remainingUsers;
       const postLen = CREATORS[i].users.length;
       
       if (preLen != postLen){
@@ -183,7 +197,9 @@ wss.on("connection", function connection(ws) {
           numUsers: CREATORS[i].users.length
         });
         // Update host-side
-        CREATORS[i].wsInfo.send(usersInfo);
+        if (CREATORS[i].name !== "The Daily Hustle"){
+          CREATORS[i].wsInfo.send(usersInfo);
+        }
         // Update user-side
         CREATORS[i].users.forEach( client => {
           client.send(usersInfo);
