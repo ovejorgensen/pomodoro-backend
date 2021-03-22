@@ -33,6 +33,29 @@ wss.on("connection", function connection(ws) {
         })
       );
     } 
+
+    else if (type == "leaveSession") {
+      for (let i = 0; i< CREATORS.length; i++){
+        const preLen = CREATORS[i].users.length; 
+        creator = CREATORS[i].users.filter(el => el != ws)
+        CREATORS[i].users = creator;
+        const postLen = CREATORS[i].users.length;
+        
+        // Update number of people in session count
+        if (preLen != postLen){
+          const usersInfo = JSON.stringify({
+            type: "getUsersInfo",
+            numUsers: CREATORS[i].users.length
+          });
+          // Update host-side
+          CREATORS[i].wsInfo.send(usersInfo);
+          // Update user-side
+          CREATORS[i].users.forEach( client => {
+            client.send(usersInfo);
+          });
+        }
+      }
+    }
     
     else if (type == "endSession") {
       CREATORS = CREATORS.filter( el => el.wsInfo != ws);
@@ -43,28 +66,38 @@ wss.on("connection", function connection(ws) {
             names: CREATORS.map( el => el.name )
           })
         );
+        client.send(
+          JSON.stringify({
+            type: "endSession"
+          })
+        );
       }); 
     } 
     
     else {
-      let name = obj.name;
+      const name = obj.name;
       if (type === "join") {
         const clientInner = CREATORS.find( el => el.name == name);
         if (clientInner) {
           clientInner.users.push(ws);
-
-          const usersInfo = JSON.stringify({
-            type: "getUsersInfo",
-            numUsers: clientInner.users.length
+          
+          // Update user count
+          wss.clients.forEach( client => {
+            client.send(
+              JSON.stringify({
+                type: "getUsersInfo",
+                numUsers: clientInner.users.length
+              })
+            );
           });
-          clientInner.wsInfo.send(usersInfo);
 
           ws.send(
             JSON.stringify({
               type: "confirmJoin",
               name: clientInner.name,
               state: clientInner.state,
-              time: clientInner.time
+              time: clientInner.time,
+              numUsers: clientInner.users.length
             })
           );
 
@@ -127,6 +160,7 @@ wss.on("connection", function connection(ws) {
 
     const names = CREATORS.map((el) => el.name);
     
+    // Update available sessions to join
     wss.clients.forEach( client => {
       client.send(
         JSON.stringify({
@@ -135,6 +169,28 @@ wss.on("connection", function connection(ws) {
         })
       );
     });
+
+    // Update number of people in session
+    for (let i = 0; i< CREATORS.length; i++){
+      const preLen = CREATORS[i].users.length; 
+      creator = CREATORS[i].users.filter(el => el != ws)
+      CREATORS[i].users = creator;
+      const postLen = CREATORS[i].users.length;
+      
+      if (preLen != postLen){
+        const usersInfo = JSON.stringify({
+          type: "getUsersInfo",
+          numUsers: CREATORS[i].users.length
+        });
+        // Update host-side
+        CREATORS[i].wsInfo.send(usersInfo);
+        // Update user-side
+        CREATORS[i].users.forEach( client => {
+          client.send(usersInfo);
+        });
+      }
+
+    }
 
   });
 });
