@@ -60,17 +60,22 @@ wss.on("connection", function connection(ws) {
     }
     
     else if (type == "endSession") {
+      // Kick users of the current creator
+      const currentCreator = CREATORS.find(el => el.wsInfo == ws);
+      currentCreator.users.forEach(client => {
+        client.send(
+          JSON.stringify({
+            type: "endSession"
+          })
+        );
+      });
+      // Remove current creator from CREATORS and update everyones host-list
       CREATORS = CREATORS.filter( el => el.wsInfo != ws);
       wss.clients.forEach( client => {
         client.send(
           JSON.stringify({
             type: "usernames",
             names: CREATORS.map( el => el.name )
-          })
-        );
-        client.send(
-          JSON.stringify({
-            type: "endSession"
           })
         );
       }); 
@@ -165,6 +170,20 @@ wss.on("connection", function connection(ws) {
   });
 
   ws.on("close", function close() {
+    // Kick users of the current creator if a creator closed their session
+    // const currentCreator = CREATORS.find(el => el.wsInfo == ws);
+    CREATORS.forEach( creator => {
+      if (creator.wsInfo == ws){
+        creator.users.forEach(client => {
+          client.send(
+            JSON.stringify({
+              type: "endSession"
+            })
+          );
+        });
+      }
+    });
+    
     CREATORS = CREATORS.filter((creator) => creator.wsInfo != ws);
 
     const names = CREATORS.map((el) => el.name);
@@ -175,11 +194,6 @@ wss.on("connection", function connection(ws) {
         JSON.stringify({
           type: "usernames",
           names,
-        })
-      );
-      client.send(
-        JSON.stringify({
-          type: "endSession"
         })
       );
     });
