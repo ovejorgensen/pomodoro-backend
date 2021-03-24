@@ -113,7 +113,12 @@ wss.on("connection", function connection(ws) {
       } 
       
       else if (type === "create") {
-        if (name.toString().length > 10){
+        if (name == undefined || !name.toString().length || !name.toString().replace(/\s/g, '').length){
+          ws.send(
+            JSON.stringify({type: "emptyName"})
+          );
+        }
+        else if (name.toString().length > 10){
           ws.send(
             JSON.stringify({type: "longName"})
           );
@@ -126,6 +131,7 @@ wss.on("connection", function connection(ws) {
               wsInfo: ws,
               state: obj.state,
               time: obj.time,
+              active: obj.active,
               users: [],
             },
           ];
@@ -152,6 +158,7 @@ wss.on("connection", function connection(ws) {
         if (currentCreator !== undefined){
           currentCreator.state = obj.state;
           currentCreator.time = obj.time;
+          currentCreator.active = obj.active;
           const numUsers = currentCreator.users.length;
           currentCreator.users.forEach( client => {
             client.send(
@@ -159,6 +166,7 @@ wss.on("connection", function connection(ws) {
                 type: "hostStatus",
                 state: currentCreator.state,
                 time: currentCreator.time,
+                active: currentCreator.active,
                 numUsers
               })
             );
